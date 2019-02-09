@@ -1,0 +1,22 @@
+{
+    "name": "bunny",
+    "version": "0.0.1",
+    "description": "Bunny Game",
+    "main": "app.js",
+    "author": "Michael K",
+    "scripts": {
+        "app": "nodemon app.js",
+        "start": "node app.js"
+    },
+    "dependencies": {
+        "express": "^4.16.4",
+        "socket.io": "^2.2.0",
+        "uuid": "^3.3.2"
+    },
+    "devDependencies": {
+        "nodemon": "^1.18.9"
+    },
+    "engines": {
+        "node": "10.15.0"
+    }
+}

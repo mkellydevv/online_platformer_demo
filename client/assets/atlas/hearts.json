@@ -1,0 +1,49 @@
+{
+    "frames": {
+        "heart_0" : {
+            "frame": {"x":0,"y":140,"w":10,"h":10},
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {"x":0,"y":0,"w":10,"h":10},
+            "sourceSize": {"w":10,"h":10},
+            "pivot": {"x":0.5,"y":0.5}
+        },
+        "heart_1" : {
+            "frame": {"x":0,"y":130,"w":10,"h":10},
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {"x":0,"y":0,"w":10,"h":10},
+            "sourceSize": {"w":10,"h":10},
+            "pivot": {"x":0.5,"y":0.5}
+        },
+        "heart_2" : {
+            "frame": {"x":0,"y":120,"w":10,"h":10},
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {"x":0,"y":0,"w":10,"h":10},
+            "sourceSize": {"w":10,"h":10},
+            "pivot": {"x":0.5,"y":0.5}
+        },
+        "heart_3" : {
+            "frame": {"x":0,"y":110,"w":10,"h":10},
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {"x":0,"y":0,"w":10,"h":10},
+            "sourceSize": {"w":10,"h":10},
+            "pivot": {"x":0.5,"y":0.5}
+        },
+        "heart_4" : {
+            "frame": {"x":0,"y":100,"w":10,"h":10},
+            "rotated": false,
+            "trimmed": false,
+            "spriteSourceSize": {"x":0,"y":0,"w":10,"h":10},
+            "sourceSize": {"w":10,"h":10},
+            "pivot": {"x":0.5,"y":0.5}
+        }
+    },
+    "meta": {
+        "image":"hearts.png",
+        "scale":1,
+        "size":{"w":180,"h":200}
+    }
+}
