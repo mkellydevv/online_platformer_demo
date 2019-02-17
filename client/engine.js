@@ -1,46 +1,57 @@
-
-const Engine = function(time_step,client) {
-    this.time_step = time_step;
-    this.tick = 0;
-
-    this.run = function(time_stamp){
-        this.tick++;
-        this.animation_frame_request = window.requestAnimationFrame(this.handleRun);
-
-        this.accumulated_time += time_stamp - this.time;
-        this.time = time_stamp;
-
-        // Hande user input
-        client.processInput();
-
-        // Update game state
-        if (this.accumulated_time >= this.time_step * 3) {
-            this.accumulated_time = this.time_step;
-        }
-        while (this.accumulated_time >= this.time_step) {
-            this.accumulated_time -= this.time_step;
-            client.update(time_stamp);
-            this.updated = true;
-        }
-
-        // Render
-        if (this.updated === true) {
-            this.updated = false;
-            client.render(time_stamp);
-        }
+// Fixed Time Step Game Engine
+class Engine {
+    constructor (client,time_step) {
+        this.client = client;
+        
+        // Engine Properties
+        this.animation_frame_request = null;
+        this.delta_time = 0;
+        this.local_tick = 0;
+        this.previous_time = 0;
+        this.time_step = time_step || 1000/30;
+        this.update_view = false;
     }
 
-    this.handleRun = (time_step) => {this.run(time_step);};
-};
+    run (time_stamp) {
+        this.delta_time += time_stamp - this.previous_time;
+        this.previous_time = time_stamp;
 
-Engine.prototype = {
-    constructor : Engine,
-    start : function() {
-        this.accumulated_time = this.time_step;
-        this.time = window.performance.now();
-        this.animation_frame_request = window.requestAnimationFrame(this.handleRun);
-    },
-    stop : function() {
+        // Update Game State
+        let num_updates = 0;
+        while (this.delta_time >= this.time_step) {
+            this.num_updates++;
+            if (num_updates >= 5) {
+                this.delta_time = this.time_step;
+                break;
+            }
+            
+            this.client.processLocalInput();
+            this.client.updateGameState();
+            this.delta_time -= this.time_step;
+            this.update_view = true;
+            this.local_tick++;
+        }
+
+        // Update view
+        if (this.update_view === true) {
+            this.client.updateView();
+            this.update_view = false;
+        }
+
+        this.animation_frame_request = window.requestAnimationFrame(this.run.bind(this));
+    }
+
+    start () {
+        this.animation_frame_request = window.requestAnimationFrame(this.run.bind(this));
+    }
+
+    pause () {
         window.cancelAnimationFrame(this.animation_frame_request);
+    }
+}
+
+if ('undefined' !== typeof global) {
+    module.exports = {
+        Engine
     }
 }

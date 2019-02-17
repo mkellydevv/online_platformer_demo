@@ -1,0 +1,12 @@
+License : GNU AGPLv3
+Website : https://choosealicense.com/licenses/agpl-3.0/
+
+External Assets:
+
+"SunnyLand" by ansimuz
+    License : Creative Commons Attribution v4.0 International
+    Website : https://ansimuz.itch.io/sunny-land-pixel-game-art 
+
+"7SOUL’S RPG GRAPHICS – ICON PACK" by 7Soul
+    License :  GameDev Markets standard license through Humble Bundle Purchase
+    Website : https://www.gamedevmarket.net/asset/16x16-icons-for-rpg-pack-1-915/

@@ -2,11 +2,11 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Bunny</title>
+    <title>CTF - Demo</title>
 
-    <link href = "/client/index.css" rel = "stylesheet" type = "text/css">
+    <link href ="/client/index.css" rel="stylesheet" type="text/css">
 
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.slim.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/5.0.0-rc/pixi.min.js"></script>
 
     <script src="/client/client.js"></script>
@@ -14,15 +14,12 @@
     <script src="/client/controller.js"></script>
     <script src="/client/engine.js"></script>
     <script src="/client/game_objects.js"></script>
-    <script src="/client/derived_objects.js"></script>
+    <script src="/client/data_objects.js"></script>
+    <script src="/client/collision.js"></script>
     <script src="/client/game.js"></script>
     
-    <script>
-        var socket = io();
-    </script>
-
 </head>
     <body>
-        <p></p>
+        <div id='dev'></div>
     </body>
 </html>
