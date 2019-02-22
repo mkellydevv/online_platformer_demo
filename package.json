@@ -1,6 +1,6 @@
 {
     "name": "ctf_demo",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Custom game engine demo",
     "main": "app.js",
     "author": "Michael Kelly",

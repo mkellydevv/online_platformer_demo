@@ -4,12 +4,14 @@ class Game {
         this.bullets = [];                  // Holds all Bullet objects
         this.collectibles = [];             // Holds all Collectible objects
         this.colliders = [];                // Holds all Collider objects
+        this.doodads = [];                  // Holds all Doodad objects
         this.dynamic_platforms = [];        // Holds all dynamic Platform objects
         this.entities = [];                 // Holds all Entity objects
         this.explosions = [];               // Holds all Explosion objects
+        this.regions = [];                  // Holds all Region objects
         this.spawns = [];                   // Holds all Spawn objects
         this.static_platforms = [];         // Holds all static Platform objects
-        this.triggers = [];                 // Holds all Trigger objects
+        this.triggers = [];                 // Holds all Triggers
 
         this.collision_map = [];            // 2D Array that takes in collision map data from level data
         this.grid = null;                   // Broad Phase Collision Container : Spatial Grid
@@ -20,7 +22,7 @@ class Game {
         
         // Current Layer Properties
         this.friction = 0.85;
-        this.gravity = 2;
+        this.gravity = 1.05;
         this.rows = null;
         this.columns = null;
         this.tile_size = null;
@@ -54,6 +56,14 @@ class Game {
         this.team_1 = new Faction({
             hostiles:[this.creeps]
         });
+
+        // Doodads
+        for (let i = 0; i < this.layer.doodads.length; i++) {
+            let data = this.layer.doodads[i];
+            let doodad = new Doodad(data.type_id,new Box(data.box[0],data.box[1],data.box[2],data.box[3]),data.tags);
+            doodad.pixi_sprite = this.pixi.getNewSprite(doodad.getSpriteData(),doodad.box,this.layer);
+            this.doodads.push(doodad);
+        }
 
         // Player spawns
         let data = this.layer.player_spawns[0];
@@ -102,15 +112,21 @@ class Game {
             }
         }
 
-        // Triggers
-        for (let i = 0; i < this.layer.triggers.length; i++) {
-            let data = this.layer.triggers[i];
-            let trigger = new Trigger(data[0],new Box(data[1],data[2],data[3],data[4]));
-            this.triggers.push(trigger);
+        // Regions
+        for (let i = 0; i < this.layer.regions.length; i++) {
+            let data = this.layer.regions[i];
+            let region = new Region(new Box(data.box[0],data.box[1],data.box[2],data.box[3]),data.tags);
+            if (data.hasOutline !== undefined)
+                region.pixi_sprite = this.pixi.getNewBoxGraphics(region.box,this.layer,data.hasOutline);
+            this.regions.push(region);
         }
 
+        // Add trigger event listeners
+        this.initializeTriggers();
+
         // Initial insert of static objects into grid
-        this.grid.insertGameObjects('static',this.colliders,this.collectibles,this.static_platforms,this.triggers);
+        this.grid.insertGameObjects('static',this.colliders,this.collectibles,this.doodads,
+            this.static_platforms,this.regions);
     }
 
     processInput () {
@@ -125,6 +141,10 @@ class Game {
             this.player.released_attack = true;
             this.player.released_mouse2 = true;
             this.player.released_q = true;
+            this.player.released_r = true;
+            this.player.released_e = true;
+            this.player.interacting = false;
+            this.player.released_shift = true;
             this.player.disable_platforms = false;
             this.player.dampenJump();
         }
@@ -173,8 +193,30 @@ class Game {
             // Use weapon special ability
             if (this.input_queue[0].mouseRight === true) {
                 if (this.player.released_mouse2 === true) {
-                    if (this.player.ability === 'impulse')
+                    if (this.player.ability === 'impulse') {
                         this.spawnExplosion(this.input_queue[0].mouse_game_pos,{w:32,h:32},15);
+                    } else if (this.player.ability === 'slow_field') {
+                        if (this.player.ability_container !== undefined) {
+                            this.destroyRegion(this.player.ability_container);
+                            this.player.ability_container = undefined;
+                        } else {
+                            let sprite_info = new SpriteInfo();
+                            sprite_info.atlas = 'fx';
+                            sprite_info.name = 'fx';
+                            sprite_info.anim = '_energy';
+                            this.player.ability_container = this.spawnRegion(this.input_queue[0].mouse_game_pos,
+                                {w:32,h:32},[client.game.triggers[2],client.game.triggers[5]],
+                                {center:true,pixi_sprite:this.pixi.getNewAnimatedSprite(sprite_info,this.layer)}
+                            );
+                        }
+                    } else if (this.player.ability = 'ricochet') {
+                        if (this.player.ability_container !== undefined)
+                            this.destroyRegion(this.player.ability_container);
+                        this.player.ability_container = this.spawnRegion(this.input_queue[0].mouse_game_pos,
+                            {w:32,h:3},[client.game.triggers[3]],
+                            {center:true,pixi_sprite:'generate'}
+                        );
+                    }
                     this.player.released_mouse2 = false;
                 }
             } else {
@@ -192,16 +234,36 @@ class Game {
             }
 
             // Switch weapon
-            if (this.input_queue[0].e === true) {
-                if (this.player.cd_switch_weapon_count > this.player.cd_switch_weapon) {
+            if (this.input_queue[0].r === true) {
+                if (this.player.released_r === true) {
                     this.switchEntityWeapon(this.player);
-                    this.player.cd_switch_weapon_count = 0;
                 }
+                this.player.released_r = false;
+            } else {
+                this.player.released_r = true;
             }
 
-            // Teleport
-            if (this.input_queue[0].r === true) {
-                if (this.input_queue[0].mouse_game_pos !== undefined) {
+            // Interact
+            if (this.input_queue[0].e === true) {
+                if (this.player.released_e === true) {
+                    this.player.interacting = true;
+                    if (this.player.text_box !== undefined) {
+                        this.player.text_box_closed = true;
+                        this.closeTextBox();
+                    } else {
+                        this.player.text_box_closed = false;
+                    }
+                }
+                this.player.released_e = false;
+            } else {
+                this.player.interacting = false;
+                this.player.released_e = true;
+            }
+
+            // Teleport / Drag player
+            if (this.input_queue[0].g === true) {
+                if (this.input_queue[0].mouse_game_pos !== undefined &&
+                    this.input_queue[0].mouseLeft === true) {
                     this.player.box.setCenter(this.input_queue[0].mouse_game_pos.x,
                         this.input_queue[0].mouse_game_pos.y);
                 }
@@ -209,11 +271,16 @@ class Game {
 
             // Spawn platform
             if (this.input_queue[0].shift === true) {
-                if (this.player.boots.id === 'boots_03') {
-                    if (this.player.spawned_platform !== null) 
-                        this.destroyPlatform(this.player.spawned_platform);
-                    this.player.spawned_platform = this.spawnPlatform(this.player.box.x,this.player.box.getBottom());
+                if (this.player.released_shift === true) {
+                    if (this.player.boots.id === 'boots_03') {
+                        if (this.player.spawned_platform !== null) 
+                            this.destroyPlatform(this.player.spawned_platform);
+                        this.player.spawned_platform = this.spawnPlatform(this.player.box.x,this.player.box.getBottom(),this.player.box.vx);
+                    }
                 }
+                this.player.released_shift = false;
+            } else {
+                this.player.released_shift = true;
             }
 
             this.input_queue.shift();
@@ -227,7 +294,10 @@ class Game {
 
         // Update dynamic platforms
         this.updateDynamicPlatforms();
-        
+
+        // Set start_collision triggers to false to know if they are no longer occuring
+        this.primeTriggerEndCollision(this.entities,this.bullets);
+
         // Process input
         this.processInput();
         
@@ -239,7 +309,7 @@ class Game {
         this.grid.insertGameObjects('dynamic',this.entities,this.bullets,this.explosions,this.dynamic_platforms);
 
         // Update entities' states and weapon cooldowns
-        this.updateEntityCoolDowns();
+        this.updateEntityCooldowns();
 
         // Update Dynamic Game Object X positions
         this.updateObjectXPositions();
@@ -263,8 +333,248 @@ class Game {
         this.collisionCheckEntities('grid',this.entities,'dynamic');
         this.explosions = [];   // Clear explosions
 
+        // Check that start_collision triggers are no longer occuring and issue end_collision events
+        this.checkTriggerEndCollision(this.entities,this.bullets);
+
         // Update sprite animations/positions
         this.updateAnimations();
+    }
+
+    // ------------------------------------------------------------------
+    // Trigger Functions
+    // ------------------------------------------------------------------
+
+    addTriggerToGroup (trigger,group) {
+        for (let i = 0; i < group.length; i++) {
+            let obj = group[i];
+            
+            if (obj.triggers === undefined)
+                obj.triggers = [];
+
+            // Add trigger if it does not already exist
+            if (obj.triggers.indexOf(trigger) === -1)
+                obj.triggers.push(trigger);
+        }
+    }
+
+    checkTriggerConditions (trigger,...args) {
+        for (let i = 0; i < trigger.conditions.length; i++) {
+            let condition = trigger.conditions[i];  
+            switch (condition) {
+                case 'interact' : {
+                    let entity = args[0];
+                    if (entity.interacting !== true)
+                        return false;
+                    break;
+                }
+            }
+        }
+        return true;
+    }
+
+    checkTriggerEndCollision (...args) {
+        for (let i = 0; i < args.length; i++) {
+            let group = args[i];
+            for (let j = 0; j < group.length; j++) {
+                let obj = group[j];
+                if (obj.collisions === undefined)
+                    continue;
+
+                let map = obj.collisions;
+                map.forEach((val,key,map)=>{
+                    if (val === false) {
+                        // end_collision event occured
+                        for (let i = 0; i < key.triggers.length; i ++) {
+                            let trigger = key.triggers[i];
+                            if (trigger.events.indexOf('end_collision') !== -1) {
+                                for (let j = 0; j < trigger.actions.length; j++) {
+                                    let action = trigger.actions[j];
+                                    this.triggerAction(action,obj,key);
+                                }
+                            }
+                        }
+                        map.delete(key);
+                    }
+                })
+                if (map.size === 0)
+                    delete obj.collisions;
+            }
+        }
+    }
+
+    getObjectsWithTag (group,tag) {
+        let selection = [];
+        for (let i = 0; i < group.length; i++) {
+            if (group[i].tags.indexOf(tag) !== -1)
+                selection.push(group[i]);
+        }
+        return selection;
+    }
+
+    handleTriggers (entity,game_object) {
+        if (game_object.triggers !== undefined) {
+            for (let i = 0; i < game_object.triggers.length; i++) {
+                let trigger = game_object.triggers[i];
+                for (let j = 0; j < trigger.events.length; j++) {
+                    if (trigger.events[j] === 'start_collision') {
+                        // Store collision information to know when collision is no longer occuring
+                        this.storeStartCollisionTrigger(entity,game_object);
+                        for (let k = 0; k < trigger.actions.length; k++) {
+                            let check_conditions = this.checkTriggerConditions(trigger,entity,game_object);
+                            if (check_conditions === true)
+                                this.triggerAction(trigger.actions[k],entity,game_object);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    initializeTriggers () {
+        this.triggers = this.layer.triggers;
+        for (let i = 0; i < this.triggers.length; i++) {
+            let trigger = this.triggers[i];
+
+            let group = null;
+            switch (trigger.attach_targets.group) {
+                case 'regions' : {
+                    group = this.regions;
+                    break;
+                }
+                case 'doodads' : {
+                    group = this.doodads;
+                    break;
+                }
+            }
+
+            let selection = this.getObjectsWithTag(group,trigger.attach_targets.tag);
+
+            this.addTriggerToGroup(trigger,selection);
+        }
+    }
+
+    primeTriggerEndCollision (...args) {
+        for (let i = 0; i < args.length; i++) {
+            let group = args[i];
+            for (let j = 0; j < group.length; j++) {
+                let obj = group[j];
+                if (obj.collisions !== undefined) {
+                    this.setMapAll(obj.collisions,false);
+                }
+            }
+        }
+    }
+
+    setMapAll (map,value) {
+        map.forEach((val,key,map)=>{
+            map.set(key,value);
+        })
+    }
+
+    storeStartCollisionTrigger (obj_1,obj_2) {
+        if (obj_1.collisions === undefined)
+            obj_1.collisions = new Map();
+        obj_1.collisions.set(obj_2,true);
+    }
+
+    triggerAction (action,...args) {
+        switch (action) {
+            case 'damage' : {
+                let entity = args[0],
+                    game_object = args[1];
+
+                if (entity.cd_damage_boost_count > entity.cd_damage_boost) {
+                    if (entity.box.vy !== 0)
+                        entity.actionEntityKnockback(game_object.box,2);
+                    entity.current_health -= 2;
+                    if (entity.current_health < 1) {
+                        let store = (entity.ai === false) ? true : false;
+                        this.destroyEntity(entity,store);
+                    }
+                    entity.cd_damage_boost_count = -5;
+                    if (entity === this.player)
+                        this.update_ui = true;
+                }
+                break;
+            }
+            case 'death' : {
+                let store = (entity.ai === false) ? true : false;
+                this.destroyEntity(entity,store);
+                break;
+            }
+            case 'spawn_text_box' : {
+                let entity = args[0],
+                    game_object = args[1];
+                entity.interacting = false;
+                if (this.player.text_box === undefined && this.player.text_box_closed !== true) {
+                    let message = '';
+                    for (let i = 0; i < game_object.tags.length; i++) {
+                        let tag_arr = game_object.tags[i].split('_');
+                        if (tag_arr[0] === 'msg')
+                            message = this.layer.messages[game_object.tags[i]];
+                    }
+                    this.player.text_box = this.pixi.getNewTextBox(message,game_object.box.getCenter());
+                } 
+                else
+                    this.closeTextBox();
+                this.player.text_box_closed = false;
+                break;
+            }
+            case 'close_text_box' : {
+                this.closeTextBox();
+                break;
+            }
+            case 'reduce_velocity' : {
+                let obj_1 = args[0];
+                if (obj_1.reduction === undefined) {
+                    obj_1.reduction = {
+                        accel:{x:obj_1.accel_x,y:obj_1.accel_y,jump:obj_1.accel_jump},
+                        velocity:{x:obj_1.box.vx,y:obj_1.box.vy},
+                        gravity:this.gravity/3
+                    }
+                    obj_1.accel_x /= 3;
+                    obj_1.accel_y /= 3;
+                    obj_1.accel_jump /= 3;
+                    obj_1.box.vx /= 3;
+                    obj_1.box.vy /= 3;
+                }
+                break;
+            }
+            case 'reset_velocity' : {
+                let obj_1 = args[0];
+                if (obj_1.reduction !== undefined) {
+                    obj_1.accel_x = obj_1.reduction.accel.x;
+                    obj_1.accel_y = obj_1.reduction.accel.y;
+                    obj_1.accel_jump = obj_1.reduction.accel.jump;
+                    if (obj_1 instanceof Bullet) {
+                        obj_1.box.vx = obj_1.reduction.velocity.x;
+                        obj_1.box.vy = obj_1.reduction.velocity.y;
+                    }
+                    delete obj_1.reduction;
+                }
+                break;
+            }
+            case 'ricochet' : {
+                let obj_1 = args[0],
+                    obj_2 = args[1];
+                if (obj_1 instanceof Bullet) {
+                    if (obj_1.box.vy > 0)
+                        obj_1.box.setBottom(obj_2.box.y);
+                    else
+                        obj_1.box.setTop(obj_2.box.getBottom());
+                    obj_1.box.vy = -obj_1.box.vy;
+
+                }
+            }
+        }
+    }
+
+    // Make a trigger action
+    closeTextBox () {
+        if (this.player.text_box !== undefined) {
+            this.player.text_box.destroy();
+            this.player.text_box = undefined;
+        }
     }
 
     // ------------------------------------------------------------------
@@ -282,8 +592,12 @@ class Game {
 
     updateObjectYPositions () {
         for (let i = 0; i < this.entities.length; i++) {
-            if (this.entities[i].flying === false)
-                this.entities[i].box.updateYPosition(this.gravity);
+            if (this.entities[i].flying === false) {
+                let gravity = this.gravity;
+                if (this.entities[i].reduction !== undefined)
+                    gravity = this.entities[i].reduction.gravity;
+                this.entities[i].box.updateYPosition(gravity);
+            }
             else
                 this.entities[i].box.updateYPosition(0,this.friction);
         }
@@ -306,7 +620,7 @@ class Game {
         for (let i = 0; i < this.entities.length; i++) {
             let entity = this.entities[i];
             entity.updateAnimation();
-            if (entity.old_sprite_anim !== entity.sprite_anim) {
+            if (entity.sprite_info.prev_anim !== entity.sprite_info.anim) {
                 entity.pixi_sprite.destroy();
                 entity.pixi_sprite = this.pixi.getNewAnimatedSprite(entity,this.layer,entity.name);
                 entity.updateAnimation();
@@ -327,13 +641,20 @@ class Game {
         }
     }
 
-    updateEntityCoolDowns () {
+    updateEntityCooldowns () {
         for (let i = 0; i < this.entities.length; i++) {
             let entity = this.entities[i];
-            for (let j = 0; j < entity.weapon_slots.length; j++)
-                entity.weapon_slots[j].cd_attack_count++;
-            entity.cd_switch_weapon_count++;
+            this.updateWeaponCooldowns(entity);
             entity.cd_damage_boost_count++;
+        }
+    }
+
+    updateWeaponCooldowns (entity,cd_count=null) {
+        for (let j = 0; j < entity.weapon_slots.length; j++) {
+            if (cd_count === null)
+                entity.weapon_slots[j].cd_attack_count++;
+            else
+                entity.weapon_slots[j].cd_attack_count = cd_count;
         }
     }
 
@@ -526,14 +847,17 @@ class Game {
                 let visited_candidates = new Map();
                 for (let j = 0; j < candidates.length; j++) {
                     let candidate = candidates[j];
-                    if (candidate instanceof Collider) {
-                        if (visited_candidates.get(candidate) === undefined) {
-                            // Narrow Phase : AABB
-                            let collided = bullet.box.checkCollision(candidate);
-                            if (collided === true) {
+                    if (visited_candidates.get(candidate) === undefined) {
+                        // Narrow Phase : AABB
+                        let collided = bullet.box.checkCollision(candidate);
+                        if (collided === true) {
+                            if (candidate instanceof Collider) {
                                 let destroyed = this.handleCollisionCollider(bullet,candidate);
                                 if (destroyed === true)
                                     break;
+                            }
+                            else if (candidate instanceof Region) {
+                                this.handleCollisionRegion(bullet,candidate);
                             }
                         }
                     }
@@ -546,11 +870,13 @@ class Game {
     collisionCheckEntities (broad_phase_type,entity_group,...args) {
         // Broad Phase : Spatial Grid
         if (broad_phase_type === 'grid') {
+            loop_1:
             for (let i = 0; i < entity_group.length; i++) {
                 let ent = entity_group[i];
                 let candidates = this.grid.getCollisionCandidates(args[0],ent);
                 let visited_candidates = new Map();
                 let checked_entities = new Map();
+                loop_2:
                 for (let j = 0; j < candidates.length; j++) {
                     let candidate = candidates[j];
                     if (visited_candidates.get(candidate) === undefined) {
@@ -562,14 +888,18 @@ class Game {
                                     this.handleCollisionCollider(ent,candidate);
                                 } else if (candidate instanceof Collectible) {
                                     this.handleCollisionCollectible(ent,candidate);
+                                } else if (candidate instanceof Doodad) {
+                                    this.handleCollisionDoodad(ent,candidate);
                                 } else if (candidate instanceof Platform) {
                                     this.handleCollisionPlatform(ent,candidate);
-                                } else if (candidate instanceof Trigger) {
-                                    this.handleCollisionTrigger(ent,candidate);
+                                } else if (candidate instanceof Region) {
+                                    this.handleCollisionRegion(ent,candidate);
                                 }
                             } else if (args[0] === 'dynamic') {
                                 if (candidate instanceof Bullet) {
-                                    this.handleCollisionBullet(ent,candidate);
+                                    let entity_destroyed = this.handleCollisionBullet(ent,candidate);
+                                    if (entity_destroyed === true)
+                                        break loop_2;
                                 } else if (candidate instanceof Entity) {
                                     if (checked_entities.get(candidate) === undefined) 
                                         this.handleCollisionEntity(ent,candidate);
@@ -591,6 +921,8 @@ class Game {
     handleCollisionBullet (entity,bullet) {
         if (entity.faction.hostiles.indexOf(bullet.faction) !== -1) {
             if (entity.cd_damage_boost_count > entity.cd_damage_boost) {
+                let entity_destroyed = false;
+
                 entity.current_health -= bullet.damage;
                 entity.cd_damage_boost_count = 0;
                 entity.actionKnockback(bullet);
@@ -598,6 +930,7 @@ class Game {
                 if (entity.current_health < 1) {
                     let store = (entity.ai === false) ? true : false;
                     this.destroyEntity(entity,store);
+                    entity_destroyed = true;
                 }
 
                 if (bullet.pierces === false)
@@ -605,6 +938,8 @@ class Game {
                 
                 if (entity === this.player)
                     this.update_ui = true;
+
+                return entity_destroyed;
             }
         }
     }
@@ -643,6 +978,10 @@ class Game {
         }
     }
 
+    handleCollisionDoodad (entity,doodad) {
+        this.handleTriggers(entity,doodad);
+    }
+
     handleCollisionEntity (ent_1,ent_2) {
         // Creep collision
         if (ent_1.faction !== this.creeps && ent_2.faction === this.creeps) {
@@ -650,10 +989,13 @@ class Game {
             let bounce_jump = false;
             if (ent_1.boots.bounce === true) {
                 bounce_jump = ent_1.actionBounceJump(ent_2);
-                if (ent_1.boots.damage > 0) {
-                    ent_2.current_health -= ent_1.boots.damage;
-                    if (ent_2.current_health < 1)
-                        this.destroyEntity(ent_2);
+                if (bounce_jump === true) {
+                    if (ent_1.boots.damage > 0) {
+                        ent_2.current_health -= ent_1.boots.damage;
+                        if (ent_2.current_health < 1) {
+                            this.destroyEntity(ent_2);
+                        }
+                    }
                 }
             }
             // Dont damage/knockback during invicibility frames or a bounce jump
@@ -694,29 +1036,8 @@ class Game {
         }
     }
 
-    handleCollisionTrigger (entity,trigger) {
-        switch (trigger.type) {
-            case 'damage' : {
-                if (entity.cd_damage_boost_count > entity.cd_damage_boost) {
-                    if (entity.box.vy !== 0)
-                        entity.actionEntityKnockback(trigger.box,2);
-                    entity.current_health -= 2;
-                    if (entity.current_health < 1) {
-                        let store = (entity.ai === false) ? true : false;
-                        this.destroyEntity(entity,store);
-                    }
-                    entity.cd_damage_boost_count = -5;
-                    if (entity === this.player)
-                        this.update_ui = true;
-                }
-                break;
-            }
-            case 'death' : {
-                let store = (entity.ai === false) ? true : false;
-                this.destroyEntity(entity,store);
-                break;
-            }
-        }
+    handleCollisionRegion (entity,region) {
+        this.handleTriggers(entity,region);
     }
 
     // ------------------------------------------------------------------
@@ -766,6 +1087,10 @@ class Game {
         // Add weapon's ability to player
         if (entity.weapon_slots[0].type === 'staff')
             entity.ability = 'impulse';
+        else if (entity.weapon_slots[0].type === 'sword')
+            entity.ability = 'slow_field';
+        else if (entity.weapon_slots[0].type === 'star')
+            entity.ability = 'ricochet';
         else
             entity.ability = null;
 
@@ -777,10 +1102,21 @@ class Game {
         if (entity.weapon_slots.length > 1) {
             let tmp = entity.weapon_slots.shift();
             entity.weapon_slots.push(tmp);
+
+            if (this.player.ability_container !== undefined) {
+                this.destroyRegion(this.player.ability_container);
+                this.player.ability_container = undefined;
+            }
+
             if (entity.weapon_slots[0].type === 'staff')
                 entity.ability = 'impulse';
+            else if (entity.weapon_slots[0].type === 'sword')
+                entity.ability = 'slow_field';
+            else if (entity.weapon_slots[0].type === 'star')
+                entity.ability = 'ricochet';
             else
                 entity.ability = null;
+            this.updateWeaponCooldowns(entity,entity.weapon_slots[0].cd_attack/2);
             this.update_ui = true;
         }
     }
@@ -822,6 +1158,7 @@ class Game {
                 collectible.pixi_sprite.destroy();
             this.grid.remove('static',collectible);
             this.collectibles.splice(this.collectibles.indexOf(collectible),1);
+            this.spawnFX('sprites','fx_item',collectible.box.getCenter());
         }
     }
 
@@ -839,7 +1176,8 @@ class Game {
                 entity.spawner.object_concurrent_count--;
                 entity.spawner.cd_spawn_rate_count = 0;
             }
-        } 
+        }
+        this.spawnFX('sprites','fx_death',entity.box.getCenter());
     }
 
     destroyPlatform (platform) {
@@ -853,6 +1191,13 @@ class Game {
         this.destroyEntity(entity,false);
     }
 
+    destroyRegion (region) {
+        if (region.pixi_sprite !== undefined && region.pixi_sprite._destroyed === false)
+            region.pixi_sprite.destroy();
+        this.grid.remove('static',region);
+        this.regions.splice(this.regions.indexOf(region),1);
+    }
+
     spawnBullet (faction,pos,dir,angle,weapon) {
         let bullet = new Bullet(pos,dir,angle,weapon);
         bullet.pixi_sprite = this.pixi.getNewSprite(weapon.getSpriteData(),bullet.box,this.layer,{anchor:0.5})
@@ -862,16 +1207,63 @@ class Game {
 
     spawnExplosion (pos,dim,force) {
         let explosion = new Explosion(new Box(pos.x,pos.y,dim.w,dim.h),force);
+        this.spawnFX('fx','fx_impulse',explosion.box.getCenter());
         this.explosions.push(explosion);
     }
 
-    spawnPlatform (x,y) {
+    spawnFX (atlas,type_id,pos) {
+        let sprite_info = new SpriteInfo();
+        let id_arr = type_id.split('_');
+
+        sprite_info.atlas = atlas;
+        sprite_info.name = id_arr[0];
+        sprite_info.anim = '_' + id_arr[1];
+
+        let fx = this.pixi.getNewAnimatedSprite(sprite_info,this.layer);
+        fx.base_sprite.loop = false;
+        fx.base_sprite.anchor.set(0.5,0.5);
+        fx.position.set(pos.x,pos.y);
+       
+        fx.base_sprite.onComplete = fx.destroy;
+    }
+
+    spawnPlatform (x,y,vx=null) {
+        // Shift x value a litle bit so entity doesnt fall off
+        if (vx !== null)
+            x += 3 * vx;
         let platform = new Platform('aa','s',{x:x,y:y},16);
         platform.pixi_sprite = this.pixi.getNewSprite(platform.getSpriteData(),platform.box,this.layer);
         
         this.static_platforms.push(platform);
         this.grid.insert('static',platform);
         return platform;
+    }
+
+    spawnRegion (pos,dim,triggers,options) {
+        let region = new Region(new Box(pos.x,pos.y,dim.w,dim.h),[]);
+
+        if (options.center !== undefined && options.center === true)
+            region.box.setCenter(pos.x,pos.y);
+        if (options.has_outline !== undefined && options.has_outline !== null)
+            region.pixi_sprite = this.pixi.getNewBoxGraphics(region.box,this.layer,options.has_outline);
+        else if (options.pixi_sprite !== undefined) {
+            if (options.pixi_sprite === 'generate')
+                region.pixi_sprite = this.pixi.getNewSprite({atlas:'props',texture:'platform_03'},region.box,this.layer);
+            else {
+                region.pixi_sprite = options.pixi_sprite;
+                region.pixi_sprite.position.set(region.box.getCenterX(),region.box.getCenterY());
+            }
+        }
+        this.regions.push(region);
+        this.grid.insert('static',region);
+
+        for (let i = 0; i < triggers.length; i++) {
+            let trigger = triggers[i];
+            this.addTriggerToGroup(trigger,[region]);
+        }
+        
+
+        return region;
     }
     
     storeEntity (entity,player_spawn,respawn_rate) {
@@ -887,8 +1279,9 @@ class Game {
     // ------------------------------------------------------------------
 
     checkOutOfBounds (game_object) {
-        if (game_object.box.getRight() < this.x || game_object.box.x > this.w ||
-            game_object.box.getBottom() < this.y || game_object.box.y > this.h ) {
+        let buffer = 0;
+        if (game_object.box.getRight() < (this.x-buffer) || game_object.box.x > (this.w+buffer) ||
+            game_object.box.getBottom() < (this.y-buffer) || game_object.box.y > (this.h+buffer)) {
             return true;
         }
         return false;

@@ -3,9 +3,11 @@
     "textures":{
       "back":"client/assets/environment/back.png",
       "middle":"client/assets/environment/middle.png",
-      "tileset":"client/assets/environment/tileset.png"
+      "tileset":"client/assets/environment/tileset.png",
+      "window":"client/assets/ui/window.png"
     },
     "texture_atlases":{
+      "fx":"client/assets/atlas/fx.json",
       "hearts":"client/assets/atlas/hearts.json",
       "items":"client/assets/atlas/items.json",
       "props":"client/assets/atlas/props.json",
@@ -80,8 +82,19 @@
             ["acdb",80,328,16,16],
             ["acdc",552,120,16,16]
           ],
+          "doodads":[
+            {"type_id":"sign","box":[95,60,18,20],"tags":["text_box","msg_0"]},
+            {"type_id":"sign","box":[263,44,18,20],"tags":["text_box","msg_1"]},
+            {"type_id":"sign","box":[455,204,18,20],"tags":["text_box","msg_2"]},
+            {"type_id":"sign","box":[96,348,18,20],"tags":["text_box","msg_3"]},
+            {"type_id":"sign","box":[239,412,18,20],"tags":["text_box","msg_4"]},
+            {"type_id":"sign","box":[703,428,18,20],"tags":["text_box","msg_5"]},
+            {"type_id":"sign","box":[551,124,18,20],"tags":["text_box","msg_6"]},
+            {"type_id":"sign","box":[543,12,18,20],"tags":["text_box","msg_7"]},
+            {"type_id":"sign","box":[63,60,18,20],"tags":["text_box","msg_8"]}
+          ],
           "platforms":[
-              ["ab","s",{"x":256,"y":60},32],
+              ["ab","s",{"x":256,"y":64},32],
               ["ab","s",{"x":472,"y":160},32],
               ["ab","s",{"x":592,"y":240},32],
               ["ab","s",{"x":640,"y":240},32],
@@ -109,20 +122,64 @@
             ["frog_ai_0","jump",586,48,1,1],
             ["frog_ai_0",null,608,465,1,1]
           ],
+          "regions":[
+            {"box":[208,121,48,10],"tags":["hazard"]},
+            {"box":[288,121,96,10],"tags":["hazard"]},
+            {"box":[192,265,144,10],"tags":["hazard"]},
+            {"box":[400,265,48,10],"tags":["hazard"]},
+            {"box":[304,192,16,10],"tags":["hazard"]},
+            {"box":[192,192,16,10],"tags":["hazard"]},
+            {"box":[208,336,32,10],"tags":["hazard"]},
+            {"box":[272,368,48,10],"tags":["hazard"]},
+            {"box":[288,416,64,10],"tags":["hazard"]},
+            {"box":[368,352,32,10],"tags":["hazard"]},
+            {"box":[352,400,48,10],"tags":["hazard"]},
+            {"box":[720,472,16,10],"tags":["hazard"]}
+          ],
+          "messages":{
+            "msg_0":"Press Q to move spawn point.",
+            "msg_1":"Press R to switch weapons.",
+            "msg_2":"Boots allow head bouncing.",
+            "msg_3":"Boots do damage now.",
+            "msg_4":"Have you been using Right Click?",
+            "msg_5":"Git Gud.",
+            "msg_6":"Press Shift to spawn platforms.",
+            "msg_7":"Try adding /?eagle to the URL.",
+            "msg_8":"Try Ctrl+C and Ctrl+V."
+          },
           "triggers":[
-              ["damage",208,121,48,10],
-              ["damage",288,121,96,10],
-              ["damage",192,265,144,10],
-              ["damage",400,265,48,10],
-              ["damage",304,192,16,10],
-              ["damage",192,192,16,10],
-              ["damage",208,336,32,10],
-              ["damage",272,368,48,10],
-              ["damage",288,416,64,10],
-              ["damage",368,352,32,10],
-              ["damage",352,400,48,10],
-              ["damage",720,472,16,10]
-            ]   
+            {
+              "attach_targets":{"group":"regions","tag":"hazard"},
+              "events":["start_collision"],
+              "conditions":[],
+              "actions":["damage"]
+            },{
+              "attach_targets":{"group":"doodads","tag":"text_box"},
+              "events":["start_collision"],
+              "conditions":["interact"],
+              "actions":["spawn_text_box"]
+            },{
+              "attach_targets":{"group":"regions","tag":"slow_field"},
+              "events":["start_collision"],
+              "conditions":[],
+              "actions":["reduce_velocity"]
+            },{
+              "attach_targets":{"group":"regions","tag":"ricochet"},
+              "events":["start_collision"],
+              "conditions":[],
+              "actions":["ricochet"]
+            },{
+              "attach_targets":{"group":"doodads","tag":"text_box"},
+              "events":["end_collision"],
+              "conditions":[],
+              "actions":["close_text_box"]
+            },{
+              "attach_targets":{"group":"regions","tag":"slow_field"},
+              "events":["end_collision"],
+              "conditions":[],
+              "actions":["reset_velocity"]
+            }
+          ]   
     },{
         "id":"bg1",
         "cacheAsBitmap":true,

@@ -14,7 +14,7 @@ class Client {
         
         // Client Properties
         this.dev_mode = false;
-        this.mouse_game_pos = null;
+        this.mouse_client_pos = null;
         this.mouseMoveAlias = null;
         
         // Web Sockets
@@ -52,14 +52,14 @@ class Client {
     }
 
     handleEventMouseDown (event) {
-        this.mouse_game_pos = this.getMouseGamePosition(event);
+        this.updateClientMousePosition(event);
         this.mouseMoveAlias = this.handleEventMouseMove.bind(this);
         this.controller.onMouseDown(event);
         window.addEventListener('mousemove',this.mouseMoveAlias);
     }
     
     handleEventMouseMove (event) {
-        this.mouse_game_pos = this.getMouseGamePosition(event);
+        this.updateClientMousePosition(event);
     }
 
     handleEventMouseUp (event) {
@@ -159,6 +159,8 @@ class Client {
             input_data.e = true;
         if (this.controller.keyPressed('r') === true)
             input_data.r = true;
+        if (this.controller.keyPressed('g') === true)
+            input_data.g = true;
         if (this.controller.keyPressed('Shift') === true)
             input_data.shift = true;
         if (this.controller.mousePressed('MouseLeft')) 
@@ -166,7 +168,7 @@ class Client {
         if (this.controller.mousePressed('MouseRight'))
             input_data.mouseRight = true;
         if (this.mouseMoveAlias !== null)
-            input_data.mouse_game_pos = this.mouse_game_pos;
+            input_data.mouse_game_pos = this.getMouseGamePosition();
         
         if (Object.keys(input_data).length > 1)
             this.game.input_queue.push(input_data);
@@ -218,7 +220,7 @@ class Client {
         for(let i = 0; i < this.game.player.weapon_slots.length; i++){
             let sprite_data = this.game.player.weapon_slots[i].getSpriteData();
             let sprite = new PIXI.Sprite(this.pixi.resources[sprite_data.atlas].textures[sprite_data.texture]);
-            sprite.position.x = (this.pixi.view.width / 2 - 8) + 16 * i;
+            sprite.position.x = ((this.pixi.view.width/this.pixi.x_scale) / 2 - 8) + 16 * i;
             ui_layer.addChild(sprite);
         }
 
@@ -236,19 +238,22 @@ class Client {
             this.pixi.aspect_ratio = 4/3;
         this.resizeCanvas();
     }
+    
+    updateClientMousePosition (event) {
+        this.mouse_client_pos = {x:event.pageX,y:event.pageY};
+    }
 
     // Returns position of mouse in the game world
-    getMouseGamePosition (event) {
-        let ratio_x = this.pixi.canvas.clientWidth / this.pixi.view.width,
-            ratio_y = this.pixi.canvas.clientHeight / this.pixi.view.height;
+    getMouseGamePosition () {
         return {
-            x:Math.floor((event.pageX - this.pixi.canvas.offsetLeft) / ratio_x + this.pixi.view.x),
-            y:Math.floor((event.pageY - this.pixi.canvas.offsetTop) / ratio_y + this.pixi.view.y)
+            x:Math.floor((this.mouse_client_pos.x - this.pixi.canvas.offsetLeft + this.pixi.view.x) / this.pixi.x_scale),
+            y:Math.floor((this.mouse_client_pos.y - this.pixi.canvas.offsetTop + this.pixi.view.y) / this.pixi.y_scale)
         };
     }
 
     resizeCanvas () {
         this.pixi.resize(document.documentElement.clientWidth,document.documentElement.clientHeight);
+        this.pixi.updateCameraPosition(this.game.player.box.getCenter(),false);
         this.updateUI();
     }
 
@@ -265,7 +270,8 @@ class Client {
     showMouseInfo () {
         window.addEventListener('mousemove',(event)=>{
             this.handleEventMouseMove(event);
-            document.getElementById('dev').innerHTML = `Mouse Game Pos: ${this.mouse_game_pos.x},${this.mouse_game_pos.y}`;
+            let pos = this.getMouseGamePosition();
+            document.getElementById('dev').innerHTML = `Mouse Game Pos: ${pos.x},${pos.y}`;
         });
     }
 

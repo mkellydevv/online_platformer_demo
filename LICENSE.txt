@@ -5,8 +5,13 @@ External Assets:
 
 "SunnyLand" by ansimuz
     License : Creative Commons Attribution v4.0 International
-    Website : https://ansimuz.itch.io/sunny-land-pixel-game-art 
+    Website : https://ansimuz.itch.io/sunny-land-pixel-game-art
+    Notes : Small modifications made.
 
 "7SOUL’S RPG GRAPHICS – ICON PACK" by 7Soul
     License :  GameDev Markets standard license through Humble Bundle Purchase
     Website : https://www.gamedevmarket.net/asset/16x16-icons-for-rpg-pack-1-915/
+
+"PIXEL EFFECTS COLLECTION VOL 1" by Toomask
+    License :  GameDev Markets standard license through Humble Bundle Purchase
+    Website : https://www.gamedevmarket.net/asset/pixel-effects-collection-01-8964/

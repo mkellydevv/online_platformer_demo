@@ -1,0 +1,40 @@
+Patch: v1.0.1
+
+Gameplay:
+    NEW Signposts have been added to display information to player
+    Gravity lowered by half, should make the overall physics feel smoother
+    Entity physics adjusted
+    Creep health reduced to 5 from 10
+
+Abilities:
+    NEW Ability: Star Ricochet - Right Click
+        Bullets bounce off a placed platform
+    NEW Ability: Sword Slow Field - Right Click
+        Bullets and Entities are slowed down within the Region
+    Ability: Staff Impulse - Right Click
+        Physics adjusted
+    Ability: Platform Boots - Shift
+        Cooldown added
+
+Controls:
+    NEW Interact - E button
+    Switch Weapon - Now on R Button
+
+Visual:
+    Added fx to entity death and collectible pickup
+    Added fx to staff inpulse ability
+    Camera tracking is smoother
+    Dragging player is smoother
+
+Engine:
+    New classes - SpriteInfo, Doodad, Region
+    Sprite properties now held in a SpriteInfo Data object
+    Trigger System:
+        Events: start_collision, end_collision
+        Conditions: interacting
+        Actions: Many
+
+Bug Fixes:
+    Enemies no longer take damage on contact while having damage boots on
+    Holding autofire now properly updates mouse position while moving
+    Player should start the game with no boots now

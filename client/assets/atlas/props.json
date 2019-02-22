@@ -103,6 +103,14 @@
 		"sourceSize": {"w":32,"h":16},
 		"pivot": {"x":0.5,"y":0.5}
 	},
+	"platform_03":{
+		"frame": {"x":22,"y":13,"w":32,"h":5},
+		"rotated": false,
+		"trimmed": false,
+		"spriteSourceSize": {"x":0,"y":0,"w":32,"h":5},
+		"sourceSize": {"w":32,"h":5},
+		"pivot": {"x":0.5,"y":0.5}
+	},
 	"rock":{
 		"frame": {"x":2,"y":19,"w":28,"h":15},
 		"rotated": false,

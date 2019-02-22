@@ -21,9 +21,9 @@ class Pixi {
         this.current_layer;             // Layer with camera focus
         
         // Camera Objects/Properties
-        this.view = null;               // Dimensions in game pixels
-        this.bounds = null;             // Dimensions in game pixels
-        this.dead_zone = null;          // Dimensions in game pixels
+        this.view = null;               
+        this.bounds = null;             
+        this.dead_zone = null;          
         this.aspect_ratio = 4/3;
         this.x_scale = null;            // Scales stage to display apropriate pixel size
         this.y_scale = null;
@@ -35,9 +35,12 @@ class Pixi {
         this.box_bounds_graphics = false;// If true, graphics will be added around box objects
 
         this.text_style = {
-            fontFamily: 'Arial',
-            fontSize: '5px',
-            fill: '0xFFFFFF',
+            align:'center',
+            fontFamily:'Arial',
+            fontSize:'4px',
+            fill:'0xFFFFFF',
+            wordWrap:true,
+            wordWrapWidth:34
         };
     }
 
@@ -56,38 +59,53 @@ class Pixi {
         width = Math.round(width);
         height = Math.round(height);
 
-        let view_w = 192,
-            view_h = 144;
         if (this.aspect_ratio === 4/3) {
             this.x_scale = width / 192;
             this.y_scale = height / 144;
         } else if (this.aspect_ratio === 16/9) {
             this.x_scale = width / 256;
             this.y_scale = height / 144;
-            view_w = 256;
         }
         
-        let dead_dim = {w:view_w/4,h:view_h/3.75},
-            dead_offset = {x:(view_w-dead_dim.w)/2,y:(view_h-dead_dim.h)/2};
+        let dead_dim = {w:width/4,h:height/3.75},
+            dead_offset = {x:(width-dead_dim.w)/2,y:(height-dead_dim.h)/2};
 
-        this.view = new PIXI.Rectangle(0,0,view_w,view_h);
-        this.bounds = new PIXI.Rectangle(0,0,this.current_layer.w,this.current_layer.h);
+        this.view = new PIXI.Rectangle(0,0,width,height);
+        this.bounds = new PIXI.Rectangle(0,0,this.current_layer.w*this.x_scale,this.current_layer.h*this.y_scale);
         this.dead_zone = new PIXI.Rectangle(dead_offset.x,dead_offset.y,dead_dim.w,dead_dim.h);
 
+        // Resize renderer to canvas dimensions and scale stage to the appropriate aspect ratio
         this.renderer.resize(width,height);
         this.stage.scale.set(this.x_scale,this.y_scale);
     }
 
-    updateCameraPosition (target) {
+    updateCameraPosition (targ,do_lerp=true) {
+        let target = {x:targ.x*this.x_scale,y:targ.y*this.y_scale};
         // Move camera only within deadzone
-        if (target.x - this.view.x > this.dead_zone.right)
-            this.view.x = lerp(this.view.x,(target.x - this.dead_zone.right),this.lerp_amount);
-        else if(target.x - this.view.x < this.dead_zone.left)
-            this.view.x = lerp(this.view.x,(target.x - this.dead_zone.left),this.lerp_amount);
-        if (target.y - this.view.y > this.dead_zone.bottom)
-            this.view.y = lerp(this.view.y,(target.y - this.dead_zone.bottom),this.lerp_amount);
-        else if(target.y - this.view.y <  this.dead_zone.top)
-            this.view.y = lerp(this.view.y,(target.y - this.dead_zone.top),this.lerp_amount);
+        if (target.x - this.view.x > this.dead_zone.right) {
+            if (do_lerp === true)
+                this.view.x = lerp(this.view.x,(target.x - this.dead_zone.right),this.lerp_amount);
+            else
+                this.view.x = target.x - this.dead_zone.right;
+        }
+        else if(target.x - this.view.x < this.dead_zone.left) {
+            if (do_lerp === true)
+                this.view.x = lerp(this.view.x,(target.x - this.dead_zone.left),this.lerp_amount);
+            else
+                this.view.x = target.x - this.dead_zone.left;
+        }
+        if (target.y - this.view.y > this.dead_zone.bottom) {
+            if (do_lerp === true)
+                this.view.y = lerp(this.view.y,(target.y - this.dead_zone.bottom),this.lerp_amount);
+            else
+                this.view.y = target.y - this.dead_zone.bottom;
+        }
+        else if(target.y - this.view.y <  this.dead_zone.top) {
+            if (do_lerp === true)
+                this.view.y = lerp(this.view.y,(target.y - this.dead_zone.top),this.lerp_amount);
+            else
+                this.view.y = target.y - this.dead_zone.top;
+        }
         // Prevent camera from going out of bounds
         if (this.view.x < this.bounds.left)
             this.view.x = this.bounds.left;
@@ -101,8 +119,8 @@ class Pixi {
 
     updateLayerPosition (layer_data) {
         let stage_layer = this.stage.children.find(obj => obj.layer_id === layer_data.id);
-        let x = Math.round(-this.view.x),
-            y = Math.round(-this.view.y);
+        let x = -this.view.x/this.x_scale,
+            y = -this.view.y/this.y_scale;
 
         // Apply offsets
         x += layer_data.offset_x;
@@ -151,7 +169,7 @@ class Pixi {
     }
 
     onTextureDataLoaded (callback) {
-        this.unpackAnimationData();
+        this.unpackAnimationData('sprites','fx');
         this.populateStageLayers();
         this.cacheLayers();
         callback();
@@ -164,13 +182,17 @@ class Pixi {
         }
     }
 
-    unpackAnimationData() {
-        for (let i = 0; i < this.resources.sprites.data.meta.frameTags.length; i++) {
-            let prop = this.resources.sprites.data.meta.frameTags[i];
-            let animation_frames = [];
-            for (let j = prop.from; j <= prop.to; j++)
-                animation_frames.push(this.resources.sprites.textures[j]);
-            this.resources.sprites.spritesheet.animations[prop.name] = animation_frames;
+    unpackAnimationData(...args) {
+        for (let i = 0; i < args.length; i++) {
+            let resource = args[i];
+
+            for (let j = 0; j < this.resources[resource].data.meta.frameTags.length; j++) {
+                let prop = this.resources[resource].data.meta.frameTags[j];
+                let animation_frames = [];
+                for (let k = prop.from; k <= prop.to; k++)
+                    animation_frames.push(this.resources[resource].textures[k]);
+                this.resources[resource].spritesheet.animations[prop.name] = animation_frames;
+            }
         }
     }
 
@@ -276,6 +298,38 @@ class Pixi {
     // Sprite Creation Functions
     // ------------------------------------------------------------------
 
+    getNewAnimatedSprite (game_object,layer,name=null) {
+        let stage_layer = this.stage.children.find(obj => obj.layer_id === layer.id);
+        
+        let container = new PIXI.Container();
+
+        // Add animated sprite to container
+        let animated_sprite, sprite_info;
+        if (game_object instanceof SpriteInfo)
+            sprite_info = game_object;
+        else
+            sprite_info = game_object.sprite_info;
+        animated_sprite = this.getSpriteAnimation(sprite_info);
+        container.addChild(animated_sprite);
+        container.base_sprite = animated_sprite;
+        
+        // Add name label to container
+        if (name !== null) {
+            let label = this.getSpriteLabel(name,0.5);
+            label.position.x = game_object.box.half_w;
+            label.position.y = -12;
+            container.addChild(label);
+        }
+            
+        // Add box bounds graphics to container
+        if (this.box_bounds_graphics === true && game_object.box !== undefined)
+            container.addChild(this.getSpriteBoxBounds(game_object.box,null,0.5,-1));
+
+        // Add container to stage
+        stage_layer.addChild(container);
+        return container;
+    }
+
     getNewSprite (sprite_data,sprite_box,layer,args={}) {
         let stage_layer = this.stage.children.find(obj => obj.layer_id === layer.id);
 
@@ -294,74 +348,99 @@ class Pixi {
 
         // Add box bounds graphics to container
         if (this.box_bounds_graphics === true)
-            container.addChild(this.getSpriteBoxBounds(sprite_box,0,0));
+            container.addChild(this.getSpriteBoxBounds(sprite_box,null,0,0));
 
         stage_layer.addChild(container);
         return container;
     }
 
-    getNewAnimatedSprite (game_object,layer,name=null) {
+    getNewBoxGraphics (box,layer,color) {
         let stage_layer = this.stage.children.find(obj => obj.layer_id === layer.id);
+
+        let container = new PIXI.Container();
+        container.position.set(box.x,box.y);
+
+        container.addChild(this.getSpriteBoxBounds(box,color,0,0));
+
+        stage_layer.addChild(container);
+        return container;
+    }
+
+    getNewTextBox (text='',pos) {
+        let ui_layer = this.stage.children.find(obj => obj.layer_id === 'ui');
         
         let container = new PIXI.Container();
 
-        // Add animated sprite to container
-        let animated_sprite = this.getSpriteAnimation(game_object);
-        container.addChild(animated_sprite);
-        container.base_sprite = animated_sprite;
+        let frame = new PIXI.Texture(this.resources['window'].texture,new PIXI.Rectangle(0,0,48,22));
+        let sprite = new PIXI.Sprite(frame);
+        container.addChild(sprite);
+        container.base_sprite = sprite;
+        sprite.anchor.x = 0.5;
         
-        // Add name label to container
-        if (name !== null)
-            container.addChild(this.getSpriteLabel(name));
+        // Add text label to container
+        let label = this.getSpriteLabel(text);
+        label.position.y = 6;
+        label.anchor.x = 0.5;
+        container.addChild(label);
 
-        // Add box bounds graphics to container
-        if (this.box_bounds_graphics === true)
-            container.addChild(this.getSpriteBoxBounds(game_object.box,0.5,-1));
+        container.position.set((this.view.width/this.x_scale) / 2,(this.view.height/this.y_scale)/1.5);
 
-        // Add container to stage
-        stage_layer.addChild(container);
+        ui_layer.addChild(container);
         return container;
     }
 
-    getSpriteAnimation (game_object) {
-        let anim_name = game_object.sprite_name + game_object.sprite_anim;
-        if (this.resources[game_object.sprite_atlas].spritesheet.animations[anim_name] === undefined)
-            anim_name = game_object.sprite_name + '_idle';
+    getSpriteAnimation (sprite_info) {
+        let anim_name = sprite_info.name + sprite_info.anim;
+
+        // If anim doesn't exist, try and default to the _idle animation
+        if (this.resources[sprite_info.atlas].spritesheet.animations[anim_name] === undefined)
+            anim_name = sprite_info.name + '_idle';
+
         let animated_sprite = new PIXI.AnimatedSprite(
-            this.resources[game_object.sprite_atlas].spritesheet.animations[anim_name]);
-        animated_sprite.animationSpeed = game_object.sprite_anim_speed || 0.2;
-        animated_sprite.anchor.x = 0.5;
-        animated_sprite.play();
+            this.resources[sprite_info.atlas].spritesheet.animations[anim_name]);
+            
+        // Override sprite_info with data from sprite atlas
+        let frame_tags = this.resources[sprite_info.atlas].data.meta.frameTags;
+        let frame_tag = frame_tags.find(obj => obj.name === anim_name);
+
+        // Apply animation speed
+        if (frame_tag.speed !== undefined)
+            animated_sprite.animationSpeed = frame_tag.speed;
+        else
+            animated_sprite.animationSpeed = sprite_info.speed;
 
         // Apply offset
-        let frame_tags = this.resources[game_object.sprite_atlas].data.meta.frameTags;
-        let frame_tag = frame_tags.find(obj => obj.name === anim_name);
-        if (frame_tag.offset !== undefined) {
-            let offset = frame_tag.offset;
-            animated_sprite.position.set(offset.x,offset.y);
-        }
+        if (frame_tag.offset !== undefined)
+            animated_sprite.position.set(frame_tag.offset.x,frame_tag.offset.y);
+        else
+            animated_sprite.position.set(sprite_info.offset.x,sprite_info.offset.y);
 
         // Apply tint
-        if (game_object.tint)
-            animated_sprite.tint = game_object.tint;
+        if (frame_tag.tint !== undefined)
+            animated_sprite.tint = frame_tag.tint;
+        else if (sprite_info.tint !== null)
+            animated_sprite.tint = sprite_info.tint;
+
+        animated_sprite.anchor.x = 0.5;
+        animated_sprite.play();
 
         return animated_sprite;
     }
 
-    getSpriteLabel (text) {
+    getSpriteLabel (text,anchor_x=0) {
         let label = new PIXI.Text(text,this.text_style);
         label.resolution = this.x_scale;
-        label.anchor.x = 0.5;
+        label.anchor.x = anchor_x;
         return label;
     }
 
-    getSpriteBoxBounds (box,anchor_x=0,anchor_y=0) {
+    getSpriteBoxBounds (box,color=null,anchor_x=0,anchor_y=0) {
+        if (color === null)
+            color = '0x0000FF';
         let graphics = new PIXI.Graphics();
-        graphics.lineStyle(1,'0x0000FF',1,0);
+        graphics.lineStyle(1,color,1,0);
         graphics.drawPolygon([0,0,box.w,0,box.w,box.h,0,box.h,0,0]);
-        let sprite = new PIXI.Sprite(this.renderer.generateTexture(graphics));
-        sprite.anchor.set(anchor_x,anchor_y);
-        return sprite;
+        return new PIXI.Sprite(this.renderer.generateTexture(graphics));
     }
 
     // ------------------------------------------------------------------

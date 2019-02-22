@@ -184,6 +184,27 @@ class Collider {
     }
 }
 
+class Doodad {
+    constructor (type_id,box,tags) {
+        this.type_id = type_id;
+        this.box = box;
+        this.pixi_sprite = null;
+        this.tags = tags;
+    }
+
+    getSpriteData () {
+        let atlas = 'props',
+            texture;
+        switch (this.type_id) {
+            case 'sign' : {
+                texture = 'sign';
+                break;
+            }
+        }
+        return {atlas:atlas,texture:texture};
+    }
+}
+
 class Entity {
     constructor (x,y,facing='right',name=null) {
         this.box = null;
@@ -195,18 +216,14 @@ class Entity {
         // Sprite properties
         this.pixi_sprite;
         this.facing = facing;
-        this.sprite_atlas;  // Ex: 'sprites'
-        this.sprite_name;   // Ex: 'fox'
-        this.sprite_anim;   // Ex: '_idle'
-        this.sprite_offset = {x:0,y:0};
-        this.sprite_scale = {x:1,y:1};
+        this.sprite_info = null;
 
         // Character properties
         this.max_health = 5;
         this.current_health = this.max_health;
-        this.accel_x = 0.4;
-        this.accel_y = 0.4;
-        this.accel_jump = -13;
+        this.accel_x = 0.45;
+        this.accel_y = 0.45;
+        this.accel_jump = -9;
         this.faction = null;
 
         // Respawn Properties
@@ -216,7 +233,7 @@ class Entity {
         // Equipment properties
         this.weapon_slots = [];
         this.max_weapon_slots = 3;
-        this.boots = new Boots('boots_01');   
+        this.boots = new Boots();
 
         // Abilitie properties
         this.ability = null;
@@ -246,21 +263,18 @@ class Entity {
     setEntityType (type_id) {
         let type_arr = type_id.split('_');
 
-        this.sprite_atlas = 'sprites';
-        this.sprite_anim = '_idle';
+        this.sprite_info = new SpriteInfo();
+        this.sprite_info.atlas = 'sprites';
+        this.sprite_info.name = type_arr[0];
 
         switch (type_arr[0]) {
             case 'fox' : {
                 this.box = new PhysBox(this.x,this.y,13,15);
-                this.sprite_name = 'fox';
-                this.sprite_offset = {x:6,y:-16};
                 break;
             }
             case 'eagle' : {
                 this.box = new PhysBox(this.x,this.y,15,15);
-                this.sprite_name = 'eagle';
-                this.sprite_offset = {x:9,y:-16};
-                this.sprite_scale.x = -1;
+                this.sprite_info.scale.x = -1;
                 this.accel_x = 0.5;
                 this.accel_y = 0.5;
                 this.flying = true;
@@ -268,10 +282,7 @@ class Entity {
             }
             case 'frog' : {
                 this.box = new PhysBox(this.x,this.y,15,15);
-                this.sprite_name = 'frog';
-                this.sprite_offset = {x:7,y:-16};
-                this.sprite_anim_speed = 0.1;
-                this.sprite_scale.x = -1;
+                this.sprite_info.scale.x = -1;
                 break
             }
         }
@@ -280,7 +291,7 @@ class Entity {
                 this.ai = true;
                 this.accel_x /= 2;
                 this.accel_y /= 2;
-                this.current_health = 10;
+                this.current_health = 5;
                 this.cd_damage_boost = 1;
             }
         }
@@ -333,23 +344,7 @@ class Entity {
         let this_center = this.box.getCenter(),
             box_center = box.getCenter();
 
-        if (this.box.getOldBottom() > box.y || this.box.vy === 0) {
-            if (this_center.x < box_center.x) {
-                if (this.box.vx <= 0)
-                    this.box.vx = -contact_knockback;
-                else if (this.box.vx > 0)
-                    this.box.vx = -contact_knockback - Math.abs(this.box.vx);
-            }
-            else if (this_center.x > box_center.x) {
-                if (this.box.vx >= 0)
-                    this.box.vx = contact_knockback;
-                else if (this.box.vx < 0)
-                    this.box.vx = contact_knockback - this.box.vx;
-            }
-        }
-        
-        
-        if (this.box.vy !== 0) {
+        if (this.box.getOldBottom() < box.y || this.box.getOldTop() > box.getBottom()) {
             if (this_center.y < box_center.y) {
                 if (this.box.getOldBottom() < this.box.getBottom())
                     this.box.setBottom(box.getTop());
@@ -357,7 +352,24 @@ class Entity {
             }
             else if (this_center.y > box_center.y) {
                 this.box.setTop(box.getBottom());
-                this.box.vy = 0;
+                if (this.flying === true)
+                    this.box.vy = contact_knockback - this.box.vy;
+                else
+                    this.box.vy = 0;
+            }
+        }
+        else if (this.box.getOldRight() < box.x || this.box.getOldLeft() > box.getRight()) {
+            if (this_center.x < box_center.x) {
+                if (this.box.vx <= 0)
+                    this.box.vx = -contact_knockback;
+                else if (this.box.vx > 0)
+                    this.box.vx = -contact_knockback - this.box.vx;
+            }
+            else if (this_center.x > box_center.x) {
+                if (this.box.vx >= 0)
+                    this.box.vx = contact_knockback;
+                else if (this.box.vx < 0)
+                    this.box.vx = contact_knockback - this.box.vx;
             }
         }
     }
@@ -443,24 +455,20 @@ class Entity {
         let dir = getDirectionVector(exp_cent,ent_cent);
         let penetration_x,          // Penetration percent
             penetration_y;
-        let grav_boost = 0;         // Grav boost used to overcome gravity.
 
         if (ent_cent.x < exp_cent.x)
             penetration_x = exp_cent.x - ent_cent.x;
         else if (ent_cent.x > exp_cent.x)
             penetration_x = ent_cent.x - exp_cent.x;
 
-        if (ent_cent.y < exp_cent.y) {
+        if (ent_cent.y < exp_cent.y)
             penetration_y = exp_cent.y - ent_cent.y;
-            // Multiply by penetration ratio y to improve effectiveness the further away the centers are
-            grav_boost = -7 * (penetration_y/combined_height);
-        }
         else if (ent_cent.y > exp_cent.y)
             penetration_y = ent_cent.y - exp_cent.y;
 
-        // Velocity = dir * force * penetration ratio (+ grav_boost)
+        // Velocity = dir * force * penetration ratio
         this.box.vx = dir.x * explosion.force * (1-(penetration_x/combined_width));
-        this.box.vy = dir.y * explosion.force * (1-(penetration_y/combined_height)) + grav_boost;
+        this.box.vy = dir.y * explosion.force * (1-(penetration_y/combined_height));
 
         this.jumping = true;
         this.jump_dampened = true;
@@ -598,23 +606,23 @@ class Entity {
     }
 
     updateAnimation () {
-        this.pixi_sprite.position.set(this.box.x + this.sprite_offset.x,this.box.y + this.sprite_offset.y);
+        this.pixi_sprite.position.set(this.box.x,this.box.y);
         
         if (this.facing === 'left')
-            this.pixi_sprite.base_sprite.scale.x = -1 * this.sprite_scale.x;
+            this.pixi_sprite.base_sprite.scale.x = -1 * this.sprite_info.scale.x;
         else
-            this.pixi_sprite.base_sprite.scale.x = this.sprite_scale.x;
+            this.pixi_sprite.base_sprite.scale.x = this.sprite_info.scale.x;
 
-        this.old_sprite_anim = this.sprite_anim;
+        this.sprite_info.prev_anim = this.sprite_info.anim;
         if (this.box.vy !== 0) {
             if (this.box.vy < 0)
-                this.sprite_anim = '_jump';
+                this.sprite_info.anim = '_jump';
             else
-                this.sprite_anim = '_fall';
+                this.sprite_info.anim = '_fall';
         } else if (this.box.vx !== 0) {
-            this.sprite_anim = '_run';
+            this.sprite_info.anim = '_run';
         } else {
-            this.sprite_anim = '_idle';
+            this.sprite_info.anim = '_idle';
         }
     }
 }
@@ -723,7 +731,7 @@ class PlayerSpawn {
         entity.dead = false;
         entity.pixi_sprite.visible = true;
         entity.current_health = entity.max_health;
-        entity.box.setPosition(this.box.x,this.box.y);
+        entity.box.setCenter(this.box.getCenterX(),this.box.y);
         entity.box.setVelocity(0,0);
         this.game_object_container.push(entity);
         this.entity_store.delete(entity);
@@ -767,6 +775,13 @@ class PlayerSpawn {
     }
 }
 
+class Region {
+    constructor (box,tags) {
+        this.box = box;
+        this.tags = tags;
+    }
+}
+
 // Spawner for Bullets, collectibles, entities
 class Spawn {
     constructor (object_id,object_state,object_facing,box,pixi,layer,faction,game_object_container) {
@@ -806,7 +821,6 @@ class Spawn {
         this.faction.addMembers([ent]);
 
         let object_id_arr = this.object_id.split('_');
-        //console.log(object_id_arr[2])
         switch(object_id_arr[2]) {
             case '0' : {
                 ent.setState(this.object_state,{x:ent.box.x-32,y:null},{x:ent.box.x+32,y:null});
@@ -840,13 +854,6 @@ class Spawn {
             this.cd_spawn_rate_count = 0;
         }
         this.cd_spawn_rate_count++;
-    }
-}
-
-class Trigger {
-    constructor (type,box) {
-        this.type = type;
-        this.box = box;
     }
 }
 

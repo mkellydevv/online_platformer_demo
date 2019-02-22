@@ -121,8 +121,8 @@ class PhysBox extends Box {
 
         this.vx = vx || 0;
         this.vy = vy || 0;
-        this.max_vx = 15;
-        this.max_vy = 13;
+        this.max_vx = 10;
+        this.max_vy = 10;
         this.old_x = x;
         this.old_y = y;
     }
@@ -136,6 +136,7 @@ class PhysBox extends Box {
     getOldTop () {return this.old_y;}
     getOldBottom () {return this.old_y + this.h;}
     getOldPosition () {return {x:getOldLeft(),y:getOldTop()};}
+    getVelocity () {return {x:this.vx,y:this.vy};}
 
     setVelocity(vx,vy) {this.vx = vx;this.vy = vy;}
 
@@ -303,6 +304,8 @@ class PhysBox extends Box {
 
         if (this.vy > this.max_vy)
             this.vy = this.max_vy;
+        else if (this.vy < -this.max_vy)
+            this.vy = -this.max_vy;
     
         this.x += this.vx;
         this.y += this.vy;
@@ -310,8 +313,17 @@ class PhysBox extends Box {
 
     updateXPosition (friction) {
         this.old_x = this.x;
+
         this.vx *= friction;
+
+        // Apply vx limit
+        if (this.vx > this.max_vx)
+            this.vx = this.max_vx;
+        else if (this.vx < -this.max_vx)
+            this.vx = -this.max_vx;
+
         this.x += this.vx;
+
         // Round down to 0 when under 0.05
         if (Math.round(this.vx * 10) / 10 === 0)
             this.vx = 0;
@@ -319,16 +331,36 @@ class PhysBox extends Box {
 
     updateYPosition (gravity,friction=null) {
         this.old_y = this.y;
+
+        // Apply friction to flying units
         if (friction === null)
             this.vy += gravity;
         else
             this.vy *= friction;
+
+        // Apply vy limit
         if (this.vy > this.max_vy)
             this.vy = this.max_vy;
+        else if (this.vy < -this.max_vy)
+            this.vy = -this.max_vy;
+
         this.y += this.vy;
+
         // Round down to 0 when under 0.05
         if (Math.round(this.vy * 10) / 10 === 0)
             this.vy = 0;
+    }
+}
+
+class SpriteInfo {
+    constructor () {
+        this.atlas = null;
+        this.name = null;
+        this.anim = '_idle';
+        this.speed = 0.1;
+        this.offset = {x:0,y:0};
+        this.scale = {x:1,y:1};
+        this.tint = null;
     }
 }
 
