@@ -3,7 +3,7 @@
 This is a demo level for a game that I am making using my own custom engine.  It contains 3 weapons to find of 3 different tiers, each with their own special ability.  There are also 3 boot upgrades and a heart upgrade that provide additional benefits and utilities to the player.
 
 
-__Live Demo :__ https://ctf-nfe-demo.herokuapp.com/
+__Live Demo :__ <a href="https://ctf-nfe-demo.herokuapp.com/" target="_blank">https://ctf-nfe-demo.herokuapp.com/</a>
 
 
 __Controls :__
@@ -22,7 +22,7 @@ __Engine Details :__
 * Time Step : Fixed
 * Broad Phase Collision : Spatial Grid
 * Narrow Phase Collision : Simple AABB, Swept AABB
-* Trigger System Implemented : Custom Events, Conditions, Actions
+* Trigger System : Custom Events, Conditions, Actions
 * Enemy AI : Finate State Machine
 * Server : Authoritative Server or Authoritative Host (Not yet fully implemented)
 
