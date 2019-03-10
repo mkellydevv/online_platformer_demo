@@ -22,6 +22,7 @@ __Engine Details :__
 * Time Step : Fixed
 * Broad Phase Collision : Spatial Grid
 * Narrow Phase Collision : Simple AABB, Swept AABB
+* Levl Data : Loaded from JSONs
 * Trigger System : Custom Events, Conditions, Actions
 * Enemy AI : Finate State Machine
 * Server : Authoritative Server or Authoritative Host (Not yet fully implemented)
